@@ -24,6 +24,7 @@ class ViewController: UIViewController {
     private let earthNode = SCNNode()
     private let cloudNode = SCNNode()
     private let atmosphereNode = SCNNode()
+    private let earthMaterial = SCNMaterial()
     private var displayLink: CADisplayLink?
     private var isDragging = false
     private var resetTimer: Timer?
@@ -55,6 +56,26 @@ class ViewController: UIViewController {
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+}
+
+// MARK: - Public API
+
+extension ViewController {
+
+    /// Replace the Earth sphere texture with a custom image.
+    func setEarthTexture(image: UIImage) {
+        earthMaterial.diffuse.contents = image
+    }
+
+    /// Set the scene background color.
+    func setSceneBackground(color: UIColor) {
+        scnView.backgroundColor = color
+    }
+
+    /// Set the scene background image (e.g. starfield, galaxy, etc.).
+    func setSceneBackground(image: UIImage) {
+        scene.background.contents = image
+    }
 }
 
 // MARK: - Scene Setup
@@ -107,28 +128,27 @@ extension ViewController {
         let sphere = SCNSphere(radius: 1.0)
         sphere.segmentCount = 96
 
-        let material = SCNMaterial()
-        material.lightingModel = .physicallyBased
-        material.diffuse.contents = UIColor(red: 0.15, green: 0.3, blue: 0.6, alpha: 1)
-        material.metalness.contents = 0.02
-        material.roughness.contents = 0.6
-        sphere.materials = [material]
+        earthMaterial.lightingModel = .physicallyBased
+        earthMaterial.diffuse.contents = UIColor(red: 0.15, green: 0.3, blue: 0.6, alpha: 1)
+        earthMaterial.metalness.contents = 0.02
+        earthMaterial.roughness.contents = 0.6
+        sphere.materials = [earthMaterial]
 
         earthNode.geometry = sphere
         // Subtle ellipsoid (oblate spheroid) — visibly oval but natural
         earthNode.scale = SCNVector3(1.0, 1.0, 1.0)
 
-        loadTexture(for: material)
+        loadTexture()
     }
 
-    private func loadTexture(for material: SCNMaterial) {
+    private func loadTexture() {
         let urlString = "https://www.solarsystemscope.com/textures/download/2k_earth_daymap.jpg"
         guard let url = URL(string: urlString) else { return }
 
-        URLSession.shared.dataTask(with: url) { [weak material] data, _, error in
-            guard let data = data, let image = UIImage(data: data), let material else { return }
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+            guard let self, let data = data, let image = UIImage(data: data) else { return }
             DispatchQueue.main.async {
-                material.diffuse.contents = image
+                self.earthMaterial.diffuse.contents = image
             }
         }.resume()
     }
