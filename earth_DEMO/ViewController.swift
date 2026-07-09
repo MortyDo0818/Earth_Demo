@@ -27,6 +27,7 @@ class ViewController: UIViewController {
     private var displayLink: CADisplayLink?
     private var isDragging = false
     private var resetTimer: Timer?
+    private let coordLabel = UILabel()
 
     // MARK: - Lifecycle
 
@@ -39,6 +40,7 @@ class ViewController: UIViewController {
         setupClouds()
         setupAtmosphere()
         setupStarfield()
+        setupCoordinateLabel()
         setupGestures()
     }
 
@@ -209,6 +211,39 @@ extension ViewController {
     }
 }
 
+// MARK: - Coordinate Display
+
+extension ViewController {
+
+    private func setupCoordinateLabel() {
+        coordLabel.textColor = UIColor.white
+        coordLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 15, weight: .medium)
+        coordLabel.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+        coordLabel.textAlignment = .center
+        coordLabel.layer.cornerRadius = 8
+        coordLabel.layer.masksToBounds = true
+        coordLabel.text = "Tap the Earth"
+        coordLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(coordLabel)
+
+        NSLayoutConstraint.activate([
+            coordLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            coordLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+            coordLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
+            coordLabel.heightAnchor.constraint(equalToConstant: 40)
+        ])
+    }
+
+    private func showCoordinate(lat: Double, lon: Double) {
+        let latStr = String(format: "%.2f°%@", abs(lat), lat >= 0 ? "N" : "S")
+        let lonStr = String(format: "%.2f°%@", abs(lon), lon >= 0 ? "E" : "W")
+
+        let text = "\(latStr), \(lonStr)"
+        coordLabel.text = text
+        print("Tapped coordinate: \(latStr), \(lonStr)")
+    }
+}
+
 // MARK: - Auto Rotation & Gestures
 
 extension ViewController {
@@ -229,6 +264,9 @@ extension ViewController {
     private func setupGestures() {
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
         scnView.addGestureRecognizer(pan)
+
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        scnView.addGestureRecognizer(tap)
     }
 
     @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
@@ -255,6 +293,24 @@ extension ViewController {
         default:
             break
         }
+    }
+
+    @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
+        let location = gesture.location(in: scnView)
+
+        let hitResults = scnView.hitTest(location, options: [
+            .rootNode: earthNode
+        ])
+
+        guard let hit = hitResults.first else { return }
+
+        // Convert to earthNode's local coordinate space (accounts for tilt + rotation)
+        let localPoint = earthNode.convertPosition(hit.worldCoordinates, from: nil)
+        let radius = sqrt(localPoint.x * localPoint.x + localPoint.y * localPoint.y + localPoint.z * localPoint.z)
+        let lat = asin(Double(localPoint.y / radius)) * 180 / .pi
+        let lon = atan2(Double(localPoint.x), Double(localPoint.z)) * 180 / .pi
+
+        showCoordinate(lat: lat, lon: lon)
     }
 
     @objc private func resetRotation() {
